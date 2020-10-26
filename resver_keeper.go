@@ -24,7 +24,8 @@ var (
 )
 
 func init() {
-	logger = zap.NewExample().Sugar()
+	log, _ := zap.NewDevelopment()
+	logger = log.Sugar()
 }
 
 type ResverKeeperConfig struct {

@@ -51,7 +51,7 @@ func (p *Postgres) CreateVersionStore(storeName string) error {
 
 func (p *Postgres) InitializeVersion(identifier string) (int, error) {
 	sql := fmt.Sprintf(`
-		insert into %s (identifier, version) values ('%s', %d)
+		insert into %s (identifier, version) values ('%s', %d) ON CONFLICT DO NOTHING
 	`, p.tableName, identifier, 1)
 	_, err := p.pool.Exec(context.Background(), sql)
 	if err != nil {
