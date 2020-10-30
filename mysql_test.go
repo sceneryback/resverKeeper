@@ -16,6 +16,9 @@ func TestMysql(t *testing.T) {
 		dropTable(db, tableName)
 	}()
 
+	err = db.CreateVersionStore(tableName)
+	assert.Equal(t, nil, err)
+
 	v, err := db.InitializeVersion(identifier)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, 1, v)

@@ -4,9 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 )
+
+var mysqlOnce sync.Once
 
 type Mysql struct {
 	tableName string
@@ -24,12 +27,14 @@ func NewMysql(url, tableName string) (*Mysql, error) {
 	mysql.db = db
 
 	mysql.tableName = tableName
-	err = mysql.CreateVersionStore(tableName)
-	if err != nil {
-		return nil, err
-	}
+	mysqlOnce.Do(func() {
+		err = mysql.CreateVersionStore(tableName)
+		if err != nil {
+			logger.Errorw("mysql failed to create version store", "err", err)
+		}
+	})
 
-	return &mysql, nil
+	return &mysql, err
 }
 
 func (m *Mysql) CreateVersionStore(storeName string) error {
@@ -42,7 +47,6 @@ func (m *Mysql) CreateVersionStore(storeName string) error {
 
 	_, err := m.db.Exec(sql)
 	if err != nil {
-		log.Printf("failed to create version store: %s", err)
 		return err
 	}
 
@@ -51,7 +55,7 @@ func (m *Mysql) CreateVersionStore(storeName string) error {
 
 func (m *Mysql) InitializeVersion(identifier string) (int, error) {
 	sql := fmt.Sprintf(`
-		insert into %s (identifier, version) values ('%s', %d)
+		insert ignore into %s (identifier, version) values ('%s', %d)
 	`, m.tableName, identifier, 1)
 	_, err := m.db.Exec(sql)
 	if err != nil {
@@ -68,7 +72,7 @@ func (m *Mysql) GetVersion(identifier string) (int, error) {
 	var version int
 	err := m.db.QueryRow(sql).Scan(&version)
 	if err != nil {
-		log.Printf("failed to query version for %s: %s", identifier, err)
+		logger.Errorw("failed to query version", "identifier", identifier, "err", err)
 		return 0, err
 	}
 	return version, nil

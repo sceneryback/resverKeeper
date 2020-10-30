@@ -1,6 +1,8 @@
 package resverKeeper
 
-import "errors"
+import (
+	"errors"
+)
 
 type DBType string
 

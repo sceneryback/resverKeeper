@@ -6,7 +6,6 @@ package resverKeeper
 import (
 	"errors"
 	"go.uber.org/zap"
-	"sync"
 	"time"
 )
 
@@ -41,7 +40,6 @@ type ResverKeeper struct {
 	cfg *ResverKeeperConfig
 
 	version int
-	mu      sync.RWMutex
 
 	db DB
 
@@ -86,7 +84,7 @@ func NewResverKeeper(cfg *ResverKeeperConfig, reload func() error) (*ResverKeepe
 	err = keeper.initialize()
 	if err != nil {
 		logger.Errorw("failed to initialize", "err", err.Error())
-		//return nil, err
+		return nil, err
 	}
 
 	go keeper.startWatching()
@@ -94,15 +92,13 @@ func NewResverKeeper(cfg *ResverKeeperConfig, reload func() error) (*ResverKeepe
 	return keeper, nil
 }
 
+// initialize version
 func (r *ResverKeeper) initialize() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	v, err := r.db.GetVersion(r.cfg.ResourceIdentifier)
 	if err != nil {
 		v1, err1 := r.db.InitializeVersion(r.cfg.ResourceIdentifier)
 		if err1 != nil {
-			logger.Errorf("failed to initialize version", "identifier", r.cfg.ResourceIdentifier, "err", err1.Error())
+			logger.Errorw("failed to initialize version", "identifier", r.cfg.ResourceIdentifier, "err", err1.Error())
 			return err1
 		}
 		r.version = v1
@@ -138,23 +134,20 @@ func (r *ResverKeeper) startWatching() {
 				logger.Errorw("failed to reload", "err", err.Error())
 				continue
 			}
+
+			logger.Infow("resource version changed", "identifier", r.cfg.ResourceIdentifier, "old", r.version, "new", v)
+
 			// reset version finally
-			r.mu.Lock()
 			r.version = v
-			r.mu.Unlock()
 		}
 	}()
 }
 
 func (r *ResverKeeper) IncreaseVersion() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	v, err := r.db.IncreaseVersion(r.cfg.ResourceIdentifier)
+	_, err := r.db.IncreaseVersion(r.cfg.ResourceIdentifier)
 	if err != nil {
 		return err
 	}
-	r.version = v
 	return nil
 }
 

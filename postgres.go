@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"sync"
 )
+
+var pgOnce sync.Once
 
 type Postgres struct {
 	pool      *pgxpool.Pool
@@ -22,12 +25,14 @@ func NewPostgres(url, tableName string) (DB, error) {
 	db.pool = dbpool
 
 	db.tableName = tableName
-	err = db.CreateVersionStore(db.tableName)
-	if err != nil {
-		logger.Errorw("failed to create version store", "table", tableName, "err", err.Error())
-		return nil, err
-	}
-	return &db, nil
+	pgOnce.Do(func() {
+		err = db.CreateVersionStore(tableName)
+		if err != nil {
+			logger.Errorw("failed to create version store", "err", err.Error())
+		}
+	})
+
+	return &db, err
 }
 
 func (p *Postgres) CreateVersionStore(storeName string) error {
@@ -35,14 +40,13 @@ func (p *Postgres) CreateVersionStore(storeName string) error {
 		id bigserial,
 		identifier varchar(128),
 		version bigint,
-		constraint uk_identifier unique(identifier)
+		PRIMARY KEY(identifier)
 	);
-	CREATE UNIQUE INDEX if not exists identifier_index ON %s (identifier);
+	CREATE INDEX if not exists resource_ver_identifier_index ON %s (identifier);
 	`, p.tableName, p.tableName)
 
 	_, err := p.pool.Exec(context.Background(), sql)
 	if err != nil {
-		logger.Errorw("failed to create version store", "sql", sql, "err", err.Error())
 		return err
 	}
 
@@ -51,11 +55,10 @@ func (p *Postgres) CreateVersionStore(storeName string) error {
 
 func (p *Postgres) InitializeVersion(identifier string) (int, error) {
 	sql := fmt.Sprintf(`
-		insert into %s (identifier, version) values ('%s', %d) ON CONFLICT DO NOTHING
+		insert into %s (identifier, version) values ('%s', %d) on conflict(identifier) do nothing
 	`, p.tableName, identifier, 1)
 	_, err := p.pool.Exec(context.Background(), sql)
 	if err != nil {
-		logger.Errorw("failed to initialize version", "sql", sql, "err", err.Error())
 		return 0, err
 	}
 
@@ -63,13 +66,10 @@ func (p *Postgres) InitializeVersion(identifier string) (int, error) {
 }
 
 func (p *Postgres) GetVersion(identifier string) (int, error) {
-	sql := fmt.Sprintf(`
-		select version from %s where identifier = '%s'
-	`, p.tableName, identifier)
+	sql := fmt.Sprintf(`select version from %s where identifier = '%s'`, p.tableName, identifier)
 	var version int
 	err := p.pool.QueryRow(context.Background(), sql).Scan(&version)
 	if err != nil {
-		logger.Errorw("failed to query version", "sql", sql, "err", err.Error())
 		return 0, err
 	}
 	return version, nil
@@ -81,7 +81,6 @@ func (p *Postgres) IncreaseVersion(identifier string) (int, error) {
 	`, p.tableName, identifier)
 	_, err := p.pool.Exec(context.Background(), sql)
 	if err != nil {
-		logger.Errorw("failed to increase version", "sql", sql, "err", err.Error())
 		return 0, err
 	}
 
