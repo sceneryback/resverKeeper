@@ -16,8 +16,8 @@ keeper, err := resverKeeper.NewResverKeeper(&ResverKeeperConfig{
 			VersionStoreName:    "res_ver",
 			VersionCheckSeconds: 10,
 		}, func() error {
-      // read users data from database and build your cache
-      cacheUsersFromDatabase()
+			// read users data from database and build your cache
+			cacheUsersFromDatabase()
 			return nil
 })
 ```
