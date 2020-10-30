@@ -9,16 +9,16 @@ Suppose you want to use ```resverKeeper``` to keep the version of your users dat
 
 ```go
 keeper, err := resverKeeper.NewResverKeeper(&ResverKeeperConfig{
-			ResourceIdentifier:  "users",
-			DBtype:							 resverKeeper.DBTypeMysql,
-			DBUrl:               "root@tcp(localhost:3306)/test",
-			DatabaseName:        "test",
-			VersionStoreName:    "res_ver",
-			VersionCheckSeconds: 10,
-		}, func() error {
-			// read users data from database and build your cache
-			cacheUsersFromDatabase()
-			return nil
+    ResourceIdentifier:  "users",
+    DBtype:              resverKeeper.DBTypeMysql,
+    DBUrl:               "root@tcp(localhost:3306)/test",
+    DatabaseName:        "test",
+    VersionStoreName:    "res_ver",
+    VersionCheckSeconds: 10,
+  }, func() error {
+    // read users data from database and build your cache
+    cacheUsersFromDatabase()
+    return nil
 })
 ```
 
